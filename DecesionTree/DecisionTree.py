@@ -102,16 +102,16 @@ class DecisionTree:
     
 
     def leaf_value(self, y_values):
-        # y_values = List of y values
-        most_common_value = max(set(y_values), key=y_values.count)
+        most_common_value = np.bincount(y_values.astype(int)).argmax()
         return most_common_value
+
         
     def build_tree(self, dataset, current_tree_depth):
 
         X, y = dataset[:, :-1], dataset[:, -1]
         n_samples, n_features = X.shape
 
-        if current_tree_depth <= self.max_depth and n_samples >= self.min_samples:
+        if current_tree_depth >= self.max_depth or n_samples < self.min_samples or len(np.unique(y)) == 1:
 
             best_split = self.best_split(dataset, n_features, n_samples)
 
@@ -120,10 +120,37 @@ class DecisionTree:
                 left_node = self.build_tree(best_split["left_data"], current_tree_depth + 1)
                 right_node = self.build_tree(best_split["right_data"], current_tree_depth + 1)
 
-                return Node(best_split["feature"], best_split["threshold"], best_split["left_data"], 
-                            best_split["right_data"], best_split["gain"])
+                return Node(best_split["feature"], best_split["threshold"], left_node, 
+                            right_node, best_split["gain"])
             
         leaf_value = self.leaf_value(y)
 
 
         return Node(value=leaf_value)
+    
+    def fit(self, X, y):
+        dataset = np.concatenate((X, y.reshape(-1, 1)), axis=1)
+        self.root = self.build_tree(dataset, current_tree_depth=0)
+
+
+    def predict(self, X):
+        predictions = []
+
+        for x in X:
+            prediction = self.make_prediction(x, self.root)
+            predictions.append(prediction)  
+
+        return np.array(predictions)  
+
+
+
+    def make_prediction(self, x, node):
+
+        if node.value != None:
+            return node.value
+        else:
+            feature = x[node.feature]
+            if feature <= node.threshold:
+                return self.make_prediction(x, node.left)
+            else:
+                return self.make_prediction(x, node.right)
